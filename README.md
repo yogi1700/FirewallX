@@ -21,7 +21,7 @@ that evolves from rule-based filtering → behavior-based security.
 
 ## 🔄 Flow Diagram
 
-```text id="flowkeep"
+```text
 Packet Arrives
       ↓
 IP Check
@@ -50,7 +50,7 @@ Logging + Output
 
 ## 🧩 System Pipeline
 
-```text id="pipeline2"
+```text
 Capture → Detect → Score → Decide → Act → Log
 ```
 
@@ -93,7 +93,7 @@ Capture → Detect → Score → Decide → Act → Log
 
 # 📂 Project Structure
 
-```text id="structure2"
+```text
 src/
  ├── firewall_engine.py
  ├── enforce_firewall.py
@@ -107,7 +107,7 @@ config/
 
 # ⚙️ Configuration
 
-```json id="config2"
+```json
 {
   "block_ips": [],
   "block_ports": [443],
@@ -119,29 +119,30 @@ config/
 
 # ▶️ How to Run
 
-```bash id="run2"
+```bash
 py firewall_engine.py
-```
-
----
-
-# 📊 Sample Output
-
-```text id="sample2"
-[ALLOWED] TCP ...
-[BLOCKED:PORT] ...
-[RATE ALERT]
-[THREAT] Score=6 Level=MEDIUM
 ```
 
 ---
 
 # 📅 Daily Progress Log
 
+## 🟢 Day 1 – Day 10 (Foundation Phase)
+
+* Built basic firewall using Scapy
+* Implemented packet sniffing and parsing
+* Added IP and port-based blocking
+* Created logging system
+* Structured project into modules
+* Introduced basic detection logic
+
+---
+
 ## ✅ Day 11
 
 * Implemented IPS (auto blocking system)
-* Added threat level classification
+* Added threat levels (LOW → CRITICAL)
+* Integrated firewall enforcement
 
 ---
 
@@ -149,7 +150,7 @@ py firewall_engine.py
 
 * Implemented time-based threat decay
 * Added LAST_ACTIVITY tracking
-* Added cleanup of inactive IPs
+* Implemented cleanup of inactive IPs
 * Tuned detection thresholds
 * Reduced false positives
 * Stabilized scoring system
@@ -162,14 +163,14 @@ py firewall_engine.py
 * Added trusted IP filtering
 * Skipped detection for trusted traffic
 * Reduced noise from normal traffic
-* Improved overall accuracy
+* Improved overall system accuracy
 
 ---
 
 # 🔄 Upcoming Work
 
 * Whitelist IP ranges (CIDR support)
-* Config-based tuning
+* Config-based tuning system
 * Logging improvements
 * Dashboard / visualization
 
@@ -178,14 +179,14 @@ py firewall_engine.py
 # 🧠 Key Learnings
 
 * Detection without tuning causes false positives
-* Real systems require balance, not strict rules
+* Real systems require balance (not strict rules)
 * Behavior + time + trust = effective security
 
 ---
 
 # 📌 Current Status
 
-```text id="status2"
+```text
 ✔ Firewall
 ✔ IDS
 ✔ IPS
@@ -198,8 +199,8 @@ py firewall_engine.py
 
 # 🚀 Future Goal
 
-* Real-time monitoring dashboard
-* Advanced detection tuning
-* Deployable lightweight firewall system
+* Real-time monitoring tool
+* Dashboard-based firewall
+* Deployable lightweight security system
 
 ---
