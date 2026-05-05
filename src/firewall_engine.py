@@ -8,7 +8,6 @@ from logger import write_log
 
 # ---------- Dynamic Local IP Detection ----------
 def get_local_ip():
-    """Get system IP dynamically"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("8.8.8.8", 80))
@@ -31,13 +30,16 @@ with open("../config/rules.json", "r") as f:
 BLOCK_IPS = rules["block_ips"]
 BLOCK_PORTS = rules["block_ports"]
 
+# ----------Whitelisted IPs -------
+WHITELIST_IPS = set(rules.get("whitelist_ips", []))
+
 
 # ---------- Threat System ----------
 THREAT_SCORE = {}
 AUTO_BLOCKED = set()
 LAST_ACTIVITY = {}
 
-MAX_SCORE = 20  # 🔥 CAP ADDED
+MAX_SCORE = 20
 
 DECAY_INTERVAL = 10
 DECAY_AMOUNT = 1
@@ -46,15 +48,15 @@ LAST_DECAY_RUN = 0
 DECAY_CHECK_INTERVAL = 3
 
 
-# ---------- Detection Config (TUNED) ----------
+# ---------- Detection Config ----------
 SCAN_PORTS = {}
-SCAN_THRESHOLD = 5  # 🔥 increased
+SCAN_THRESHOLD = 5
 
 DST_TRACKING = {}
-DST_THRESHOLD = 6  # 🔥 increased
+DST_THRESHOLD = 6
 
 RATE_TRACKER = {}
-RATE_THRESHOLD = 10  # 🔥 increased
+RATE_THRESHOLD = 10
 TIME_WINDOW = 5
 
 COMMON_SAFE_PORTS = {80, 443, 53}
@@ -64,11 +66,10 @@ COMMON_SAFE_PORTS = {80, 443, 53}
 RATE_LAST = {}
 SCAN_LAST = {}
 HOST_LAST = {}
-COOLDOWN = 3  # 🔥 increased
+COOLDOWN = 3
 
 
 def allow_alert(store, ip):
-    """Prevent alert spam"""
     now = time.time()
     last = store.get(ip, 0)
 
@@ -78,11 +79,16 @@ def allow_alert(store, ip):
     return False
 
 
+# ----- Checking Whitelisted IPs --------
+def is_whitelisted(ip):
+    """
+    Check if IP is trusted
+    """
+    return ip in WHITELIST_IPS
+
+
 # ---------- Threat Scoring ----------
 def update_threat_score(src_ip, score):
-    """
-    Update score with cap + IPS response
-    """
 
     new_score = THREAT_SCORE.get(src_ip, 0) + score
     THREAT_SCORE[src_ip] = min(new_score, MAX_SCORE)
@@ -124,7 +130,6 @@ def update_threat_score(src_ip, score):
 
 # ---------- Decay Engine ----------
 def apply_decay():
-    """Reduce score over time"""
 
     now = time.time()
 
@@ -163,7 +168,7 @@ def check_rate_limit(src_ip):
             print(msg)
             write_log(msg)
 
-            update_threat_score(src_ip, 2)  # 🔥 reduced impact
+            update_threat_score(src_ip, 2)
 
 
 # ---------- Port Scan ----------
@@ -180,7 +185,7 @@ def check_port_scan(src_ip, port):
             print(msg)
             write_log(msg)
 
-            update_threat_score(src_ip, 3)  # 🔥 reduced
+            update_threat_score(src_ip, 3)
 
 
 # ---------- Host Sweep ----------
@@ -194,7 +199,7 @@ def check_host_sweep(src_ip, dst_ip):
             print(msg)
             write_log(msg)
 
-            update_threat_score(src_ip, 2)  # 🔥 reduced
+            update_threat_score(src_ip, 2)
 
 
 # ---------- Rule Checks ----------
@@ -217,6 +222,11 @@ def process_packet(packet):
     src_ip = packet[IP].src
     dst_ip = packet[IP].dst
 
+    # Skip trusted traffic early
+    if is_whitelisted(src_ip) or is_whitelisted(dst_ip):
+        print(f"[WHITELIST] Skipping trusted IP {src_ip} -> {dst_ip}")
+        return
+
     protocol = "OTHER"
     port = ""
 
@@ -227,9 +237,7 @@ def process_packet(packet):
         protocol = "UDP"
         port = packet[UDP].dport
 
-    # ---------- Only monitor outbound ----------
     if src_ip in MONITORED_IPS:
-
         check_rate_limit(src_ip)
 
         if port:
@@ -258,7 +266,7 @@ def process_packet(packet):
         print(msg)
         write_log(msg)
 
-    # ---------- Controlled Decay ----------
+    # ---------- Decay ----------
     now = time.time()
     if now - LAST_DECAY_RUN > DECAY_CHECK_INTERVAL:
         apply_decay()
