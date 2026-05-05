@@ -1,274 +1,205 @@
-# FirewallX-Core
+# 🔥 FirewallX-Core
 
-Smart Firewall and Intrusion Detection System (IDS) built from scratch using Python.
-## 🔄 System Flow
+A Python-based intelligent firewall system combining:
 
-FirewallX-Core follows a multi-stage pipeline:
-
-```text
-Packet Capture → Parsing → Detection → Threat Scoring → Enforcement → Logging → Summary
-```
-                        ┌───────────────────┐
-                        │ Packet Arrives    │
-                        │ (Scapy sniff)     │
-                        └─────────┬─────────┘
-                                  ↓
-                        ┌───────────────────┐
-                        │ IP Layer Check    │
-                        │ haslayer(IP)?     │
-                        └─────────┬─────────┘
-                                  ↓
-                        ┌────────────────────────┐
-                        │ Extract Packet Data    │
-                        │ src_ip, dst_ip, port   │
-                        └─────────┬───────────── ┘
-                                  ↓
-            ┌──────────────────────────────────────────┐
-            │ Is src_ip == LOCAL_IP ?                  │
-            └───────────┬───────────────────────┬──────┘
-                        │ YES                   │ NO
-                        ↓                       ↓
-        ┌──────────────────────────┐        Skip Detection
-        │     DETECTION ENGINE      │
-        └──────────┬───────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Rate Detection             │
-        │ - Track timestamps         │
-        │ - Detect burst traffic     │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Port Scan Detection        │
-        │ - Track unique ports       │
-        │ - Ignore safe ports        │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Host Sweep Detection       │
-        │ - Track destination IPs    │
-        │ - Detect recon behavior    │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Cooldown Control           │
-        │ - Prevent alert spam       │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Trigger Alert              │
-        │ - RATE ALERT               │
-        │ - SCAN ALERT               │
-        │ - HOST SWEEP ALERT         │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Threat Scoring Engine      │
-        │ update_threat_score()      │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Calculate Threat Level     │
-        │ LOW / MED / HIGH / CRIT    │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────────┐
-        │ Decision Engine (IPS Logic)    │
-        │                                │
-        │ LOW      → Log only            │
-        │ MEDIUM   → Monitor             │
-        │ HIGH     → Warning             │
-        │ CRITICAL → Auto Block          │
-        └──────────┬─────────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Auto Response (if needed)  │
-        │ enforce_ip_block()         │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Firewall Rule Check        │
-        │ - Block IP?                │
-        │ - Block Port?              │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Output Layer               │
-        │ - Print message            │
-        │ - Write log                │
-        └──────────┬─────────────────┘
-                   ↓
-        ┌────────────────────────────┐
-        │ Session Summary            │
-        │ - Threat scores            │
-        │ - Tracking data            │
-        └────────────────────────────┘
-
-### 1. Packet Capture
-
-* Uses Scapy to capture live network packets
-* Each packet is processed in real-time
-
-### 2. Packet Parsing
-
-* Extracts:
-
-  * Source IP
-  * Destination IP
-  * Protocol (TCP/UDP)
-  * Port number
-
-### 3. Monitoring Filter
-
-* Focuses only on traffic originating from the local machine
-* Reduces noise from external network traffic
-
-### 4. Detection Layer (IDS)
-
-Multiple anomaly detection techniques are applied:
-
-* **Rate Detection**
-  Detects burst traffic within a short time window
-
-* **Host Sweep Detection**
-  Detects communication with multiple destination IPs (possible reconnaissance)
-
-* **Port Scan Detection**
-  Detects access to multiple ports from a single source
-
-* **Repeated Block Detection**
-  Identifies repeated blocked traffic from the same source
-
-### 5. Threat Scoring System
-
-Each detected event contributes to a cumulative threat score:
-
-* Repeated block → +2
-* Rate alert → +3
-* Host sweep → +3
-* Port scan → +4
-
-### 6. Threat Levels
-
-Based on accumulated score:
-
-* LOW (0–3)
-* MEDIUM (4–6)
-* HIGH (7–9)
-* CRITICAL (10+)
-
-### 7. Rule Engine
-
-Applies firewall rules from configuration:
-
-* Block specific IPs
-* Block specific ports
-
-### 8. Enforcement
-
-* Automatically applies blocking rules using Windows Firewall (netsh)
-
-### 9. Logging
-
-* All events are logged for analysis
-* Stored in `logs/firewall.log`
-
-### 10. Session Summary
-
-Displays:
-
-* Blocked sources
-* Scan tracking
-* Destination tracking
-* Rate tracking
-* Threat scores
+* Firewall rules
+* Intrusion Detection System (IDS)
+* Intrusion Prevention System (IPS)
+* Threat scoring engine
+* Time-based behavior analysis
 
 ---
 
-## 📅 Progress Log
+## 🚀 Project Vision
 
-### Day 1
+Build a **lightweight, intelligent, and adaptive firewall system**
+that evolves from rule-based filtering → behavior-based security.
 
-* Setup Python, Scapy, Npcap
-* Captured packets
-* Extracted source/destination IPs and ports
+---
 
-### Day 2
+# 🧠 System Architecture
 
-* Added TCP filtering
-* Implemented basic port-based blocking logic
+## 🔄 Flow Diagram
 
-### Day 3
+```text id="flowkeep"
+Packet Arrives
+      ↓
+IP Check
+      ↓
+Extract src_ip, dst_ip, port
+      ↓
+Whitelist Check
+      ↓
+Run Detection Engine
+  - Rate Detection
+  - Port Scan Detection
+  - Host Sweep Detection
+      ↓
+Threat Scoring
+      ↓
+Threat Level (LOW → CRITICAL)
+      ↓
+Decision Engine (IPS)
+      ↓
+Firewall Enforcement
+      ↓
+Logging + Output
+```
 
-* Added IP-based filtering
-* Implemented rule checks for blocked IPs
+---
 
-### Day 4
+## 🧩 System Pipeline
 
-* Combined modules into firewall_engine.py
-* Built unified rule engine (IP + Port filtering)
+```text id="pipeline2"
+Capture → Detect → Score → Decide → Act → Log
+```
 
-### Day 5
+---
 
-* Added dynamic JSON rule configuration (rules.json)
-* Refactored rule checks into functions
-* Tested simulated enforcement behavior
+# ⚙️ Features
 
-### Day 6
+## 🔐 Firewall
 
-* Added Windows Firewall enforcement using subprocess and netsh
-* Connected rule engine decisions to automated response
-* Added duplicate rule prevention
+* Block traffic based on IP and Port
+* Config-driven rules
 
-### Day 7
+## 🛡️ IDS (Detection)
 
-* Added logging system for firewall events
-* Added threshold-based intrusion alert detection
-* Generated alerts for repeated blocked traffic
-* Reorganized legacy modules into archive/src
+* Rate anomaly detection
+* Port scan detection
+* Host sweep detection
 
-### Day 8
+## 🚨 IPS (Prevention)
 
-* Added basic port scan detection
-* Added session summary output
-* Added host sweep (reconnaissance) detection
-* Improved anomaly detection logic
+* Auto block at CRITICAL level
+* Warning system at HIGH level
 
-### Day 9
+## 📊 Threat Scoring
 
-* Added time-based rate detection (burst traffic detection)
-* Improved alert system by preventing duplicate alerts
-* Enhanced multi-layer IDS detection pipeline
+* Dynamic score per IP
+* Multi-factor scoring
 
-### Day 10
+## ⏳ Time-based Decay
 
-* Added threat scoring system to evaluate risk based on multiple alerts
-* Introduced severity levels (LOW, MEDIUM, HIGH, CRITICAL)
-* Integrated scoring across all detection mechanisms
-* Replaced static IP checks with dynamic local IP detection
-* Added flexible monitoring system for scalable network analysis
-* Refactored code structure for better readability and maintainability
+* Score reduces over time
+* Prevents stale threats
 
-### Day 11
+## ✅ Whitelist System
 
-* Implemented auto-response system (IPS layer)
-* Added threat-based decision logic (LOW → CRITICAL)
-* Enabled automatic firewall blocking on CRITICAL threat level
-* Prevented duplicate blocking using state tracking
-* Improved detection logic to allow continuous scoring
-* Introduced cooldown mechanism to avoid alert spam
-* Achieved full IDS → IPS transition
+* Trusted IPs bypass detection
+* Reduces false positives
 
-### Day 12
+---
 
-* Implemented time-based threat score decay
-* Added LAST_ACTIVITY tracking for each IP
-* Introduced decay interval to reduce scores over time
-* Implemented cleanup of inactive IPs (score = 0)
-* Optimized decay execution using time-based scheduling
-* Fixed uncontrolled score growth using score cap
-* Tuned detection thresholds to reduce false positives
-* Improved cooldown handling to prevent alert spam
-* Stabilized system behavior for real-world traffic
+# 📂 Project Structure
 
+```text id="structure2"
+src/
+ ├── firewall_engine.py
+ ├── enforce_firewall.py
+ ├── logger.py
 
+config/
+ └── rules.json
+```
+
+---
+
+# ⚙️ Configuration
+
+```json id="config2"
+{
+  "block_ips": [],
+  "block_ports": [443],
+  "whitelist_ips": ["8.8.8.8", "1.1.1.1"]
+}
+```
+
+---
+
+# ▶️ How to Run
+
+```bash id="run2"
+py firewall_engine.py
+```
+
+---
+
+# 📊 Sample Output
+
+```text id="sample2"
+[ALLOWED] TCP ...
+[BLOCKED:PORT] ...
+[RATE ALERT]
+[THREAT] Score=6 Level=MEDIUM
+```
+
+---
+
+# 📅 Daily Progress Log
+
+## ✅ Day 11
+
+* Implemented IPS (auto blocking system)
+* Added threat level classification
+
+---
+
+## ✅ Day 12
+
+* Implemented time-based threat decay
+* Added LAST_ACTIVITY tracking
+* Added cleanup of inactive IPs
+* Tuned detection thresholds
+* Reduced false positives
+* Stabilized scoring system
+
+---
+
+## ✅ Day 13
+
+* Implemented whitelist system
+* Added trusted IP filtering
+* Skipped detection for trusted traffic
+* Reduced noise from normal traffic
+* Improved overall accuracy
+
+---
+
+# 🔄 Upcoming Work
+
+* Whitelist IP ranges (CIDR support)
+* Config-based tuning
+* Logging improvements
+* Dashboard / visualization
+
+---
+
+# 🧠 Key Learnings
+
+* Detection without tuning causes false positives
+* Real systems require balance, not strict rules
+* Behavior + time + trust = effective security
+
+---
+
+# 📌 Current Status
+
+```text id="status2"
+✔ Firewall
+✔ IDS
+✔ IPS
+✔ Decay
+✔ Whitelist
+✔ Stable
+```
+
+---
+
+# 🚀 Future Goal
+
+* Real-time monitoring dashboard
+* Advanced detection tuning
+* Deployable lightweight firewall system
+
+---
