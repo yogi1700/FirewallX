@@ -165,6 +165,14 @@ py firewall_engine.py
 * Reduced noise from normal traffic
 * Improved overall system accuracy
 
+## ✅ Day 14
+
+* Added CIDR/network whitelist support
+* Implemented subnet-based trusted traffic filtering
+* Added support for both single IPs and IP ranges
+* Improved whitelist flexibility for real-world networks
+* Validated IPS safeguard against self-blocking
+
 ---
 
 # 🔄 Upcoming Work
