@@ -1,6 +1,7 @@
 import json
 import time
 import socket
+import ipaddress
 from scapy.all import sniff, IP, TCP, UDP
 from enforce_firewall import enforce_ip_block
 from logger import write_log
@@ -82,10 +83,26 @@ def allow_alert(store, ip):
 # ----- Checking Whitelisted IPs --------
 def is_whitelisted(ip):
     """
-    Check if IP is trusted
+    Support:
+    - Single IP whitelist
+    - CIDR/network whitelist
     """
-    return ip in WHITELIST_IPS
 
+    for entry in WHITELIST_IPS:
+
+        # Single IP
+        if "/" not in entry:
+            if ip == entry:
+                return True
+
+        # CIDR / subnet
+        else:
+            network = ipaddress.ip_network(entry, strict=False)
+
+            if ipaddress.ip_address(ip) in network:
+                return True
+
+    return False
 
 # ---------- Threat Scoring ----------
 def update_threat_score(src_ip, score):
