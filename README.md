@@ -173,6 +173,14 @@ py firewall_engine.py
 * Improved whitelist flexibility for real-world networks
 * Validated IPS safeguard against self-blocking
 
+
+✅ Day 15
+Added sliding time-window detection logic
+Upgraded host sweep detection to recent-behavior analysis
+Upgraded port scan detection to recent-behavior analysis
+Added automatic expiration of old tracking entries
+Reduced infinite alert spam from long-lived memory
+Improved behavioral accuracy of IDS detections
 ---
 
 # 🔄 Upcoming Work
