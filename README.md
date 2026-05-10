@@ -183,6 +183,40 @@ Reduced infinite alert spam from long-lived memory
 Improved behavioral accuracy of IDS detections
 ---
 
+
+## ✅ Day 16 – Retry-Aware IDS Logic
+
+### Problem Identified
+The firewall was correctly blocking HTTPS traffic on port 443, but normal application retry behavior created excessive repeated traffic.
+
+This caused:
+- False RATE ALERT triggers
+- Unnecessary threat score escalation
+- Misclassification of normal retry traffic as suspicious activity
+
+---
+
+### Improvements Implemented
+
+#### Retry-Aware Rate Detection
+Upgraded rate detection logic to distinguish between:
+
+**Normal retry behavior**
+- Same destination IP
+- Same destination port
+- Repeated connection retries
+
+vs
+
+**Suspicious burst behavior**
+- Multiple destinations
+- Multiple ports
+- Diverse traffic patterns
+
+Now repeated retries are classified as:
+
+```text
+[RETRY] Repeated traffic <src_ip> -> <dst_ip> PORT:<port>
 # 🔄 Upcoming Work
 
 * Whitelist IP ranges (CIDR support)
