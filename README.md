@@ -194,6 +194,12 @@ This caused:
 - Unnecessary threat score escalation
 - Misclassification of normal retry traffic as suspicious activity
 
+
+### Day 17 – IDS False Positive Reduction
+- Removed outbound host sweep detection to avoid flagging normal browsing as reconnaissance
+- Added retry cooldown suppression to reduce repeated retry alert spam
+- Preserved inbound scan detection and threat scoring
+- Improved signal quality for real suspicious traffic
 ---
 
 ### Improvements Implemented
