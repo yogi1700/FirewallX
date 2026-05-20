@@ -53,3 +53,27 @@ def enforce_ip_block(ip):
     print(result.stderr)
 
     print(f"[ENFORCED 🔒] Block rule added for {ip}")
+
+def remove_ip_block(ip):
+
+    rule_name = f"FirewallX_{ip}"
+
+    cmd = [
+        "netsh",
+        "advfirewall",
+        "firewall",
+        "delete",
+        "rule",
+        f"name={rule_name}"
+    ]
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True
+    )
+
+    print(result.stdout)
+    print(result.stderr)
+
+    print(f"[RELEASE 🔓] Block rule removed for {ip}")
