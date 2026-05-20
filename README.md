@@ -200,6 +200,54 @@ This caused:
 - Added retry cooldown suppression to reduce repeated retry alert spam
 - Preserved inbound scan detection and threat scoring
 - Improved signal quality for real suspicious traffic
+
+
+## Day 18 - Automated Response System
+
+FirewallX now supports active automated response, moving beyond passive IDS detection.
+
+### Features Added
+- Threat scoring engine
+- Threat severity classification
+  - LOW
+  - MEDIUM
+  - HIGH
+  - CRITICAL
+- Automatic Windows Firewall blocking for critical threats
+- Temporary quarantine system (300 seconds)
+- Automatic unblock after quarantine expiry
+- Duplicate firewall rule prevention
+- Self-protection safeguard (prevents blocking local machine)
+- Threat score decay over time
+
+### Detection Logic
+FirewallX evaluates suspicious traffic and increases threat score based on behavior:
+
+- Port scan detection
+- Host sweep / reconnaissance detection
+- High traffic rate anomalies
+- Repeated connection retry detection
+
+Once a source reaches CRITICAL level:
+
+```text
+[THREAT] 130.211.115.4 Score=15 Level=CRITICAL
+[CRITICAL] Blocking 130.211.115.4
+[QUARANTINE] 130.211.115.4 isolated for 300 seconds
+```
+
+After quarantine timeout:
+
+```text
+[RELEASE 🔓] Block rule removed for 130.211.115.4
+[RELEASE] Unblocked 130.211.115.4 after quarantine expiry
+```
+
+### Impact
+FirewallX now behaves like a lightweight IPS (Intrusion Prevention System), not just a passive IDS.
+
+
+
 ---
 
 ### Improvements Implemented
