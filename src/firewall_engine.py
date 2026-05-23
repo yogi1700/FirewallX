@@ -45,6 +45,10 @@ AUTO_BLOCKED = {}
 QUARANTINE = {}
 LAST_ACTIVITY = {}
 
+OFFENDER_COUNT = {}
+PERMANENT_BLOCKED = set()
+
+
 MAX_SCORE = 20
 DECAY_INTERVAL = 10
 DECAY_AMOUNT = 1
@@ -68,7 +72,7 @@ RATE_THRESHOLD = 10
 TIME_WINDOW = 5
 RETRY_THRESHOLD = 8
 
-COMMON_SAFE_PORTS = {53, 443}
+COMMON_SAFE_PORTS = {53, 443, 80}
 
 
 # ---------------- ALERT COOLDOWNS ----------------
@@ -129,6 +133,9 @@ def get_packet_direction(src_ip, dst_ip):
     return "UNKNOWN"
 # ---------------- THREAT ENGINE ----------------
 def update_threat_score(src_ip, score):
+    if src_ip in PERMANENT_BLOCKED:
+        return
+
     new_score = THREAT_SCORE.get(src_ip, 0) + score
     THREAT_SCORE[src_ip] = min(new_score, MAX_SCORE)
     LAST_ACTIVITY[src_ip] = time.time()
@@ -159,14 +166,33 @@ def update_threat_score(src_ip, score):
             print("[SAFEGUARD] Skipping self-block")
             return
 
-        AUTO_BLOCKED[src_ip] = True
-        QUARANTINE[src_ip] = time.time()
+        OFFENDER_COUNT[src_ip] = OFFENDER_COUNT.get(src_ip, 0) + 1
+        offenses = OFFENDER_COUNT[src_ip]
 
-        msg = f"[CRITICAL] Blocking {src_ip}"
+        duration = get_quarantine_duration(src_ip)
+
+        if duration is None:
+            PERMANENT_BLOCKED.add(src_ip)
+
+            msg = f"[PERMANENT BLOCK] {src_ip} after {offenses} offenses"
+            print(msg)
+            write_log(msg)
+
+            enforce_ip_block(src_ip)
+            return
+
+        AUTO_BLOCKED[src_ip] = True
+
+        QUARANTINE[src_ip] = {
+            "blocked_at": time.time(),
+            "duration": duration
+        }
+
+        msg = f"[CRITICAL] Blocking {src_ip} (offense #{offenses})"
         print(msg)
         write_log(msg)
 
-        qmsg = f"[QUARANTINE] {src_ip} isolated for {QUARANTINE_TIME} seconds"
+        qmsg = f"[QUARANTINE] {src_ip} isolated for {duration} seconds"
         print(qmsg)
         write_log(qmsg)
 
@@ -200,9 +226,11 @@ def release_expired_quarantine():
     now = time.time()
 
     for ip in list(QUARANTINE.keys()):
-        blocked_at = QUARANTINE[ip]
+        data = QUARANTINE[ip]
+        blocked_at = data["blocked_at"]
+        duration = data["duration"]
 
-        if now - blocked_at >= QUARANTINE_TIME:
+        if now - blocked_at >= duration:
             remove_ip_block(ip)
 
             msg = f"[RELEASE] Unblocked {ip} after quarantine expiry"
@@ -211,6 +239,18 @@ def release_expired_quarantine():
 
             QUARANTINE.pop(ip, None)
             AUTO_BLOCKED.pop(ip, None)
+
+def get_quarantine_duration(ip):
+    offenses = OFFENDER_COUNT.get(ip, 0)
+
+    if offenses == 1:
+        return 300
+
+    elif offenses == 2:
+        return 900
+
+    return None
+
 # ---------------- RATE DETECTION ----------------
 def check_rate_limit(src_ip, dst_ip, port):
     if port in COMMON_SAFE_PORTS:
@@ -309,7 +349,6 @@ def check_ip_rule(src_ip):
 
 def check_port_rule(port):
     return port in BLOCK_PORTS
-# ---------------- PACKET PROCESSING ----------------
 def process_packet(packet):
     global LAST_DECAY_RUN
 
@@ -318,6 +357,10 @@ def process_packet(packet):
 
     src_ip = packet[IP].src
     dst_ip = packet[IP].dst
+
+    # Skip permanently blocked attackers
+    if src_ip in PERMANENT_BLOCKED:
+        return
 
     src_white = is_whitelisted(src_ip)
     dst_white = is_whitelisted(dst_ip)
@@ -340,20 +383,22 @@ def process_packet(packet):
 
     direction = get_packet_direction(src_ip, dst_ip)
 
-    # OUTBOUND ANALYSIS
+       # OUTBOUND ANALYSIS
     if direction == "OUTBOUND":
-        check_rate_limit(src_ip, dst_ip, port)
-
-        if port:
-            check_port_scan(src_ip, port)
-
-        check_host_sweep(src_ip, dst_ip)
+        # Ignore this machine's normal browsing/system traffic
+        if src_ip != LOCAL_IP and not is_private_ip(dst_ip):
+            check_rate_limit(src_ip, dst_ip, port)
+            check_host_sweep(src_ip, dst_ip)
 
     # INBOUND ANALYSIS
     elif direction == "INBOUND":
         if not is_private_ip(src_ip):
-            if port:
-                check_port_scan(src_ip, port)
+            if packet.haslayer(TCP):
+                src_port = packet[TCP].sport
+
+                # Ignore normal service responses
+                if src_port not in COMMON_SAFE_PORTS:
+                    check_port_scan(src_ip, src_port)
 
     # RULE ENFORCEMENT
     if check_ip_rule(src_ip):
@@ -378,8 +423,6 @@ def process_packet(packet):
         apply_decay()
         release_expired_quarantine()
         LAST_DECAY_RUN = now
-
-
 # ---------------- START ENGINE ----------------
 sniff(filter="ip", prn=process_packet)
 
