@@ -1,0 +1,60 @@
+{
+  "network_interface": null,
+
+  "lab_networks": [
+    "192.168.1.",
+    "192.168.56."
+  ],
+
+  "safe_ports": [
+    53,
+    80,
+    443
+  ],
+
+  "cooldown_seconds": 3,
+
+  "threat_thresholds": {
+    "medium": 5,
+    "high": 10,
+    "critical": 15
+  },
+
+  "quarantine": {
+    "first_offense": 300,
+    "second_offense": 900
+  },
+
+  "permanent_block_after": 3,
+
+  "max_threat_score": 20,
+
+  "decay": {
+    "interval": 10,
+    "amount": 1,
+    "check_interval": 3
+  },
+
+  "payload_patterns": [
+    "union select",
+    "' or 1=1",
+    "<script>",
+    "cmd.exe",
+    "/etc/passwd",
+    "powershell"
+  ],
+
+  "debug_payloads": false,
+
+  "log_allowed_traffic": true,
+
+  "detection": {
+    "scan_threshold": 5,
+    "port_scan_window": 10,
+    "host_sweep_threshold": 6,
+    "host_sweep_window": 10,
+    "rate_threshold": 10,
+    "time_window": 5,
+    "retry_threshold": 8
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "block_ips": ["10.232.93.106"],
+  "block_ips": [],
   "block_ports": [],
   "whitelist_ips": [
     "8.8.8.8",

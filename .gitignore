@@ -4,3 +4,10 @@ logs/
 *.log
 output.txt
 src/output.txt
+src/output
+
+# Real local config (contains your actual network/lab settings) -
+# copy config/settings.example.json to config/settings.json to get started
+config/settings.json
+
+.claude/
