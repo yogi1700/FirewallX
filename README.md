@@ -1,146 +1,57 @@
-# 🔥 FirewallX-Core
+# FirewallX
 
-A Python-based intelligent firewall system combining:
+FirewallX is a firewall and intrusion detection/prevention system I built for Windows in Python. I started it as a way to actually understand how firewalls, IDS, and IPS tools work under the hood, instead of just reading about them — so it watches live network traffic, scores behavior that looks suspicious, and automatically blocks and quarantines IPs that cross a threshold, using Windows' own firewall to enforce the block.
 
-- Firewall rules
-- Intrusion Detection System (IDS)
-- Intrusion Prevention System (IPS)
-- Threat scoring engine
-- Time-based behavior analysis
-- Adaptive automated response
+It went through a lot of iteration. It started as a plain packet sniffer, then grew into rule-based filtering, then behavior-based detection, and eventually an adaptive system that escalates its response the more times the same attacker shows up. The devlog further down walks through that progression.
 
----
+## What it does
 
-# 🚀 Project Vision
+**Firewall** — blocks traffic by IP or port, driven by a config file, enforced through the real Windows Firewall (`netsh`).
 
-Build a lightweight, intelligent, and adaptive firewall system that evolves from:
+**Detection (IDS)** — watches for a few different attack shapes:
+- a source hitting a lot of distinct destination/port combinations quickly (rate/diversity anomaly)
+- a source touching many different ports on one target (port scanning)
+- a source touching many different hosts (network sweeping/recon)
+- packet payloads matching known-bad patterns (e.g. SQL injection strings, `<script>` tags, shell command fragments)
+- repeated retries against the exact same destination and port are deliberately *not* treated as an attack — more on why below
 
-**Rule-based filtering → Behavior-based detection → Automated prevention → Adaptive IPS**
+**Prevention (IPS)** — once an IP's threat score crosses a threshold, FirewallX blocks it automatically: a temporary quarantine on the first couple of offenses, escalating quarantine time on repeat offenses, and a permanent block after the third.
 
----
+**Threat scoring** — every suspicious event adds points to a per-IP score, which decays back down over time if the IP goes quiet, and maps onto LOW / MEDIUM / HIGH / CRITICAL severity levels.
 
-# 🧠 System Architecture
+**Trust controls** — a whitelist (individual IPs or CIDR ranges) that bypasses detection entirely, plus a safeguard so the machine running FirewallX can never block itself.
 
-## 🔄 Flow Diagram
+## How it's put together
 
-```text
-Packet Arrives
-      ↓
-IP Check
-      ↓
-Extract src_ip, dst_ip, protocol, port
-      ↓
-Whitelist Check
-      ↓
-Detection Engine
-  - Rate Detection
-  - Port Scan Detection
-  - Host Sweep Detection
-      ↓
-Threat Scoring Engine
-      ↓
-Threat Classification
- LOW → MEDIUM → HIGH → CRITICAL
-      ↓
-Decision Engine (IPS)
-      ↓
-Firewall Enforcement
-      ↓
-Quarantine / Permanent Block
-      ↓
-Logging + Monitoring
+Traffic comes in through Scapy, gets checked against the whitelist, and if it's not trusted it goes through the detection engine (rate, port-scan, and host-sweep checks, plus payload inspection). Anything that trips a detector adds to that IP's threat score. Once the score crosses the CRITICAL threshold, the decision engine hands off to the enforcement layer, which adds a Windows Firewall rule and starts a quarantine timer. Everything gets logged along the way.
+
+As a loop, it's roughly: **capture → detect → score → decide → act → recover → log.**
+
+## Project layout
+
 ```
-
----
-
-## 🧩 System Pipeline
-
-```text
-Capture → Detect → Score → Decide → Act → Recover → Log
-```
-
----
-
-# ⚙️ Features
-
-## 🔐 Firewall
-- IP-based blocking
-- Port-based blocking
-- Config-driven rules
-- Windows Firewall integration
-
----
-
-## 🛡️ IDS (Detection)
-- Rate anomaly detection
-- Port scan detection
-- Host sweep detection
-- Retry-aware traffic analysis
-- Sliding time-window behavioral analysis
-
----
-
-## 🚨 IPS (Prevention)
-- Automatic blocking at CRITICAL threat level
-- Temporary quarantine enforcement
-- Automatic unblock after timeout
-- Permanent block for repeat offenders
-
----
-
-## 📊 Threat Intelligence
-- Dynamic threat scoring per IP
-- Multi-factor threat scoring
-- Threat severity classification:
-  - LOW
-  - MEDIUM
-  - HIGH
-  - CRITICAL
-
----
-
-## ⏳ Time-Based Intelligence
-- Threat score decay
-- Inactive attacker cleanup
-- Time-based quarantine expiration
-
----
-
-## ✅ Trust Controls
-- Whitelist support
-- CIDR/network whitelist support
-- Self-protection safeguard
-- Trusted traffic bypass
-
----
-
-# 📂 Project Structure
-
-```text
 FirewallX-Core/
 │
 ├── src/
-│   ├── firewall_engine.py    # capture, detection, threat scoring, entrypoint
-│   ├── enforce_firewall.py   # Windows Firewall (netsh) enforcement
-│   ├── logger.py             # file logging
-│   └── list_interfaces.py    # helper: list NIC names for settings.json
+│   ├── firewall_engine.py    capture, detection, threat scoring, entry point
+│   ├── enforce_firewall.py   Windows Firewall (netsh) enforcement
+│   ├── logger.py             file logging
+│   └── list_interfaces.py    helper — lists NIC names for settings.json
 │
 ├── config/
-│   ├── settings.example.json # template - copy to settings.json
-│   ├── settings.json         # your local config (gitignored, not committed)
-│   └── rules.json            # static block/whitelist rules
+│   ├── settings.example.json template — copy this to settings.json
+│   ├── settings.json         your local config (gitignored, not committed)
+│   └── rules.json            static block/whitelist rules
 │
-├── archive/                  # early Day 1-3 prototype scripts, kept for history
-├── logs/                     # runtime log output (gitignored)
+├── archive/                  early prototype scripts from the first few days, kept for history
+├── logs/                     runtime log output (gitignored)
 ├── requirements.txt
 └── README.md
 ```
 
----
+## Configuration
 
-# ⚙️ Configuration
-
-`config/rules.json` — static block/whitelist rules:
+`config/rules.json` holds static block/whitelist rules:
 
 ```json
 {
@@ -153,436 +64,97 @@ FirewallX-Core/
 }
 ```
 
-`config/settings.json` — detection thresholds, quarantine timing, lab networks, and
-which NIC to capture on. Copy `config/settings.example.json` to get started (see
-Quick Start below); this file is gitignored since it typically contains your own
-local network ranges.
+`config/settings.json` holds everything else — detection thresholds, quarantine timing, which network(s) count as your lab/monitored range, and which network interface to capture on. It's gitignored on purpose, since it normally contains your own local network details. Copy `config/settings.example.json` to get started.
 
----
+## Getting it running
 
-# ▶️ Quick Start
-
-**Prerequisites:** Windows, Python 3.10+, [Npcap](https://npcap.com/) installed
-(required by Scapy for packet capture), and an Administrator terminal (firewall
-rule changes require elevation).
+You'll need Windows, Python 3.10+, [Npcap](https://npcap.com/) (Scapy needs it to capture packets), and an Administrator terminal — adding firewall rules requires elevation.
 
 ```bash
-# 1. Install dependencies
+# install dependencies
 pip install -r requirements.txt
 
-# 2. Create your local config from the template
+# create your local config from the template
 copy config\settings.example.json config\settings.json
 
-# 3. Find your network interface name
+# find your network interface name
 cd src
 py list_interfaces.py
 
-# 4. Put that interface name into config/settings.json -> "network_interface",
-#    and set "lab_networks" to the subnet(s) you want to monitor
+# put that interface name into config/settings.json under "network_interface",
+# and set "lab_networks" to whichever subnet(s) you want to monitor
 
-# 5. Run (as Administrator)
+# run it (as Administrator)
 py firewall_engine.py
 ```
 
----
+## Reading the output
 
-# 📖 Reading the Output
+Every packet that gets processed prints a line like:
+`[DIRECTION][ALLOWED|BLOCKED] PROTOCOL src_ip -> dst_ip PORT:n`
 
-Every processed packet prints one line:
-`[DIRECTION][ALLOWED|BLOCKED] PROTO src_ip -> dst_ip PORT:n`
+Detection alerts sit on top of that:
 
-Detection alerts layer on top of that:
-
-| Tag | Meaning | Threat score |
+| Tag | What it means | Adds to score |
 |---|---|---|
-| `[RATE ALERT]` | One source hit many distinct dest/port combinations quickly | +2 |
-| `[SCAN ALERT]` | Many distinct ports seen from one source | +3 |
-| `[HOST SWEEP ALERT]` | One source contacted many different destinations | +2 |
-| `[PAYLOAD ALERT]` | Packet contents matched a known-bad pattern | +5 |
-| `[WARNING]` | Threat score crossed the HIGH threshold | — |
-| `[CRITICAL]` / `[QUARANTINE]` | Threat score crossed CRITICAL — IP auto-blocked via Windows Firewall and quarantined | — |
-| `[RELEASE]` | Quarantine expired, block rule removed | — |
-| `[PERMANENT BLOCK]` | Repeat offender (3rd offense) — blocked with no auto-release | — |
-
-Everything printed to console is also appended to `logs/firewall.log`.
-
----
-
-# 🧪 Testing & Validation
-
-Tested against a real attacker, not just theory: a Windows 11 host running
-FirewallX-Core, and a Kali Linux VM (VirtualBox) acting as attacker, both on
-a VirtualBox **Host-Only network** (`192.168.56.0/24` — Windows
-`192.168.56.104`, Kali `192.168.56.101`). Three steps tell the whole story —
-detect, block, verify, recover:
-
-| # | Scenario | Command (attacker) | Expected result | Config reference | Result |
-|---|---|---|---|---|---|
-| 1 | Port scan detected | `nmap -Pn -p 1-1000 <target>` | `[RATE ALERT] Diverse high traffic from <attacker>` in the log | `detection.rate_threshold = 10` | ✅ Pass — see below |
-| 2 | Auto-block + quarantine | re-run the scan until the threat score crosses 15 | `[WARNING]` → `[CRITICAL]` → `[QUARANTINE]`; a `FirewallX_<attacker-ip>` rule appears in `netsh advfirewall firewall show rule name=all` | `threat_thresholds.critical = 15`, `quarantine.first_offense = 300` | ✅ Pass — see below |
-| 3 | Block verified + auto-release | from Kali, confirm traffic now fails (`curl`/ping timing out); wait for quarantine to expire; confirm it succeeds again | Attacker traffic dropped during quarantine; `[RELEASE]` logged and traffic resumes | `quarantine.first_offense = 300` | ✅ Pass — see below |
-| 4 | Permanent block (repeat offender) | trigger CRITICAL a 3rd time from the same attacker IP | `[PERMANENT BLOCK]`; the `netsh` rule stays forever (no `[RELEASE]`) | `permanent_block_after = 3` | ✅ Pass — see below |
-| 5 | Whitelist bypass | whitelist the attacker IP in `rules.json`, restart, re-scan | `[WHITELIST] Trusted IP skipped: <attacker>`; zero alerts regardless of scan intensity | `whitelist_ips` | ✅ Pass — see below |
-
-## Test 1 — Port scan detected
-
-```
-$ nmap -Pn -p 1-1000 192.168.56.104
-```
-```text
-2026-07-20 20:06:12 | [RATE ALERT] Diverse high traffic from 192.168.56.101
-2026-07-20 20:06:24 | [WARNING] High threat detected from 192.168.56.101
-```
-
-**Why `[RATE ALERT]` and not `[SCAN ALERT]` here:** both machines fall inside
-`lab_networks`, so the engine classifies this traffic as `LAB`, and the
-port-scan detector (`check_port_scan`) only runs on `INBOUND` traffic from a
-*non-private* IP — a scan from a same-subnet lab machine is scored by the
-rate/diversity detector instead. Same underlying signal (many ports hit
-quickly), different code path.
-
-## Test 2 — Auto-block + quarantine (with adaptive escalation, bonus)
-
-Repeating the scan pushed the score past CRITICAL, and the engine created a
-real Windows Firewall rule with no manual step:
-
-```text
-2026-07-20 20:15:31 | [CRITICAL] Blocking 192.168.56.101 (offense #1)
-2026-07-20 20:15:31 | [QUARANTINE] 192.168.56.101 isolated for 300 seconds
-```
-```
-$ netsh advfirewall firewall show rule name="FirewallX_192.168.56.101"
-Rule Name:    FirewallX_192.168.56.101
-Direction:    Out
-RemoteIP:     192.168.56.101/32
-Action:       Block
-```
-
-Triggering a second offense after release also demonstrated the **adaptive
-escalation** policy documented in Day 19 — quarantine duration jumped from
-300s to 900s automatically:
-
-```text
-2026-07-20 20:24:14 | [CRITICAL] Blocking 192.168.56.101 (offense #2)
-2026-07-20 20:24:14 | [QUARANTINE] 192.168.56.101 isolated for 900 seconds
-```
-
-## Test 3 — Block verified + auto-release
-
-While quarantined, both sides independently confirmed traffic was actually
-dropped (not just logged):
-
-```
-# On Kali:
-$ curl -v --max-time 5 http://192.168.56.104
-*   Trying 192.168.56.104:80...
-* Connection timed out after 5003 milliseconds
-```
-```
-# On Windows, at the same moment:
-PS> Test-NetConnection -ComputerName 192.168.56.101
-PingSucceeded : False
-```
-
-And it released itself automatically once the timer expired — no manual
-unblock:
-
-```text
-2026-07-20 20:21:05 | [RELEASE] Unblocked 192.168.56.101 after quarantine expiry
-```
-`netsh` confirms the rule was actually removed at that point, not just
-logged as removed.
-
-## Test 4 — Permanent block (repeat offender)
-
-After the offense #2 quarantine expired, a 3rd CRITICAL from the same IP
-triggered the permanent-blacklist path instead of another timed quarantine:
-
-```text
-2026-07-20 20:40:53 | [RELEASE] Unblocked 192.168.56.101 after quarantine expiry
-2026-07-20 20:46:15 | [PERMANENT BLOCK] 192.168.56.101 after 3 offenses
-```
-
-Unlike offenses #1 and #2, this rule has no timer — `netsh` still shows it
-active with no expiry logic attached, and it stays blocked until manually
-removed:
-
-```
-$ netsh advfirewall firewall show rule name="FirewallX_192.168.56.101"
-Rule Name:    FirewallX_192.168.56.101
-Direction:    Out
-RemoteIP:     192.168.56.101/32
-Action:       Block
-```
-
-## Test 5 — Whitelist bypass
-
-Added the attacker IP to `whitelist_ips` in `rules.json`, restarted the
-engine, and re-ran the same continuous scan used above. Every single packet
-was skipped before it ever reached detection:
-
-```text
-[WHITELIST] Trusted IP skipped: 192.168.56.101
-[WHITELIST] Trusted IP skipped: 192.168.56.101
-[WHITELIST] Trusted IP skipped: 192.168.56.101
-... (539,239 times over the test run, zero alerts, zero score increase)
-```
-
-**Real gotcha found while checking this:** that message only goes to
-`print()`, not `write_log()` — so whitelisted traffic never shows up in
-`logs/firewall.log`, only on the live console. Not a bug (whitelisting
-itself works exactly as intended), but worth knowing if you're relying on
-the log file rather than the console for an audit trail — it's a minor gap
-worth closing in a future pass.
-
-## Lab setup notes (for anyone reproducing this)
-
-Getting the VM traffic visible to the capture took a few real fixes, worth
-recording in case you hit the same things:
-
-1. **Wi-Fi-bridged VM didn't work at all.** With the Kali VM's adapter set to
-   "Bridged" on the host's Wi-Fi NIC, zero attacker packets ever reached the
-   capture — common consumer Wi-Fi APs only relay unicast frames for their
-   one associated MAC address, and a bridged VM injects traffic under a
-   different (spoofed) MAC. ARP/DHCP broadcasts got through; actual TCP
-   scans did not.
-2. **Switched to VirtualBox Host-Only networking** instead — a private
-   virtual network between host and VM that never touches the Wi-Fi AP.
-   More reliable for this kind of local attacker/target testing in general.
-3. **IP mismatch after switching:** the Kali VM picked up `192.168.56.101`,
-   but Windows' Host-Only adapter was still statically set to an old
-   `10.0.2.1` from earlier, unrelated testing — two different subnets on
-   the same virtual wire, so nothing could reach anything. Fixed by setting
-   the Windows adapter back to the `192.168.56.0/24` range.
-4. **Blocking silently failed the first time** even after all of the above —
-   detection and scoring worked, but no `netsh` rule appeared. Cause: the
-   terminal running `firewall_engine.py` was VS Code's integrated terminal,
-   which is **not elevated** even if VS Code itself has admin rights.
-   `netsh advfirewall firewall add rule` requires an actual Administrator
-   terminal (right-click → "Run as administrator").
-5. Threat scores/offender counts live only in memory — restarting the
-   engine resets them, so a fresh terminal means re-running the scan to
-   build the score back up.
-6. When verifying the whitelist test, checking only `logs/firewall.log`
-   looked like total silence (no Kali traffic at all) and cost a long
-   detour re-checking VM networking that was already fine — the real
-   traffic was there the whole time, just on the console instead of the
-   log file (see Test 5). Worth checking both when debugging "nothing's
-   happening."
-
-(Host sweep and payload-pattern matching weren't separately exercised here —
-they share the same scoring/enforcement mechanism already proven by Tests
-1-4 above, just with a different trigger condition.)
-
----
-
-# 📅 Development Journey
-
-## ✅ Day 1–10 — Foundation
-Built core firewall engine:
-
-- Packet sniffing using Scapy
-- IP and port filtering
-- Logging system
-- Modular code structure
-- Basic IDS detection framework
-
----
-
-## ✅ Day 11 — IPS Introduction
-Implemented:
+| `[RATE ALERT]` | one source hit a lot of distinct destination/port pairs quickly | +2 |
+| `[SCAN ALERT]` | a lot of distinct ports seen from one source | +3 |
+| `[HOST SWEEP ALERT]` | one source touched a lot of different destinations | +2 |
+| `[PAYLOAD ALERT]` | packet contents matched a known-bad pattern | +5 |
+| `[WARNING]` | score crossed the HIGH threshold | — |
+| `[CRITICAL]` / `[QUARANTINE]` | score crossed CRITICAL — IP auto-blocked and quarantined | — |
+| `[RELEASE]` | quarantine expired, block removed | — |
+| `[PERMANENT BLOCK]` | third offense — blocked with no auto-release | — |
 
-- Threat severity classification
-- Automatic blocking logic
-- Firewall enforcement integration
-
-FirewallX evolved from IDS → IPS.
-
----
-
-## ✅ Day 12 — Threat Decay Engine
-Implemented:
+Everything printed to the console also gets appended to `logs/firewall.log`.
 
-- Threat score decay
-- LAST_ACTIVITY tracking
-- Automatic cleanup of inactive attackers
-- Detection threshold tuning
+## Testing it against a real attacker
 
-Result:
-Reduced stale threat accumulation.
-
----
-
-## ✅ Day 13 — Whitelist System
-Implemented:
+Reading the code convinced me the logic was sound, but I wanted to actually see it work against something hostile rather than just trust it. So I set up a small two-machine lab: this Windows box running FirewallX, and a Kali Linux VM on a private VirtualBox network acting as the attacker, and ran through a handful of real attack scenarios.
 
-- Trusted IP whitelist
-- Detection bypass for trusted traffic
-- Reduced false positives
+**Port scanning got picked up correctly** — running an `nmap` scan against the Windows host produced repeated `[RATE ALERT]` lines and pushed the threat score up. One thing that surprised me while checking this: because both machines were on the same local/lab subnet, the engine classified the traffic as `LAB` rather than plain `INBOUND`, and it turns out the dedicated port-scan detector only runs on inbound traffic from a non-private IP address. Same-subnet scans get caught by the rate/diversity detector instead — different code path, same result.
 
----
+**Sustained scanning escalated all the way to a real block.** Once the score crossed CRITICAL, FirewallX added an actual Windows Firewall rule blocking the attacker's IP and started a quarantine timer — no manual step involved. I confirmed the rule was really there with `netsh advfirewall firewall show rule`. Triggering a second offense after that quarantine expired also showed off the adaptive escalation from the Day 19 work — the timeout jumped from 300 seconds to 900 automatically.
 
-## ✅ Day 14 — CIDR Whitelist Support
-Implemented:
-
-- Network/subnet whitelisting
-- CIDR support
-- Flexible trusted network definitions
-
-Example:
-
-```text
-192.168.1.0/24
-10.0.0.0/8
-```
+**The block was real, not just logged.** While the attacker was quarantined, I checked from both ends at once: `curl` from Kali to the Windows host timed out, and a connectivity test from Windows back to Kali failed too. And once the quarantine timer ran out, it released itself and traffic went back to normal — again, no manual step.
 
----
+**A third offense triggered a permanent block** instead of another timed quarantine, exactly as the escalation policy describes — and unlike the first two, that rule has no expiry and stays until it's removed by hand.
 
-## ✅ Day 15 — Sliding Window IDS
-Implemented:
-
-- Sliding time-window behavioral detection
-- Recent activity tracking
-- Auto-expiration of stale detection entries
-
-Result:
-Improved detection accuracy.
-
----
-
-## ✅ Day 16 — Retry-Aware IDS Logic
-Problem:
-Normal blocked HTTPS traffic caused repeated application retries.
-
-This created:
-- False RATE alerts
-- Threat score inflation
-- Noise in logs
-
-Fix:
-Added retry-aware detection logic.
-
-Result:
-Normal retry behavior no longer treated as attacks.
-
----
-
-## ✅ Day 17 — False Positive Reduction
-Implemented:
-
-- Reduced noisy host sweep detection
-- Reduced retry spam
-- Improved signal quality
-- Safer detection thresholds
-
-Result:
-Cleaner IDS alerts.
-
----
+**Whitelisting worked cleanly.** I added the attacker's IP to the whitelist, restarted the engine, and re-ran the scan — every single packet was skipped before it ever reached detection, with zero false alerts across the whole run. While checking this one I found a real (small) gap: the whitelist-skip message only goes to the console via `print()`, it never gets written to `logs/firewall.log`. Not a bug — whitelisting itself works exactly as intended — but if you're relying on the log file rather than watching the console live, you'd never see evidence that it happened. Worth fixing at some point.
 
-## ✅ Day 18 — Automated Response System
-Implemented:
+A couple of practical things I ran into while setting this up, in case anyone else hits the same:
 
-- Automatic Windows Firewall blocking
-- Temporary quarantine system
-- Auto-unblock after timeout
-- Duplicate rule prevention
-- Self-block prevention
+- Bridging the Kali VM onto my Wi-Fi adapter didn't work at all — no attacker traffic ever reached the capture. Consumer Wi-Fi routers generally only forward unicast frames for the one MAC address that's actually associated with them, and a bridged VM injects traffic under a different MAC, so it gets silently dropped. Switching the VM to a private VirtualBox host-only network instead fixed it completely.
+- After switching, the VM and the host ended up on two different subnets because the host's adapter still had a manual IP left over from earlier testing — nothing could reach anything until I fixed that mismatch.
+- Detection and scoring worked immediately, but the actual firewall rule silently failed to get created the first time. Turned out the terminal I was running the script from wasn't elevated, even though the editor it was opened from had admin rights — Windows doesn't inherit elevation that way, and `netsh` just fails quietly without it.
+- Threat scores and offense counts only live in memory, so restarting the engine wipes them — worth knowing if a test seems to "reset" partway through.
 
-Example:
+## How this got built
 
-```text
-[THREAT] 130.211.115.4 Score=15 Level=CRITICAL
-[CRITICAL] Blocking 130.211.115.4
-[QUARANTINE] 130.211.115.4 isolated for 300 seconds
-```
+The first stretch was just getting the fundamentals working: sniffing traffic with Scapy, filtering by IP and port, setting up logging, and putting together a rough first pass at detection.
 
-Result:
-FirewallX became active IPS.
+The real turning point was adding threat severity levels and wiring detection up to actual enforcement — that's when it stopped being a monitor and became something that could act on its own. From there it was mostly about tuning: adding a decay mechanism so old threat scores fade out instead of accumulating forever, building a whitelist (including CIDR range support) so trusted traffic doesn't get flagged, and moving detection onto a sliding time window so it reacts to recent behavior instead of raw totals.
 
----
+One of the more useful bugs I ran into: normal HTTPS traffic that got blocked would keep retrying, and each retry was getting counted as a fresh rate anomaly — so a single legitimate connection attempt could inflate a score into looking like an attack. Fixing that meant explicitly recognizing "repeated hits on the same destination and port" as retry noise rather than diverse attack behavior, which also cut down a lot of other false-positive noise at the same time.
 
-## ✅ Day 19 — Adaptive IPS Escalation
-Implemented:
+After that came the actual response system — automatic Windows Firewall blocking, temporary quarantine, and auto-unblock once the timer runs out — which is when FirewallX became a real IPS instead of just an IDS with opinions. The last piece was adaptive escalation: repeat offenders get longer quarantines each time (300 seconds, then 900), and a third offense means a permanent block. Alongside that I tuned out a few remaining sources of false positives, like ignoring normal outbound browsing traffic and treating common response ports (DNS, HTTP, HTTPS) as safe by default.
 
-- Persistent offender tracking
-- Adaptive quarantine durations
-- Permanent attacker blacklist
-- Dynamic quarantine release
-- Permanent offender skip logic
+## Where it stands
 
-Escalation policy:
+Working end-to-end and tested against a real attack, not just in theory: rule-based filtering, behavioral detection, threat scoring with decay, whitelisting (including CIDR), automated quarantine, adaptive escalation, and permanent blocking for repeat offenders.
 
-```text
-1st offense → 300 sec quarantine
-2nd offense → 900 sec quarantine
-3rd offense → permanent block
-```
+## What's next
 
-False positive tuning:
+- Persisting attacker reputation across restarts instead of keeping it all in memory
+- Making detection thresholds easier to tune without editing raw config
+- Some kind of dashboard instead of reading a log file
+- Deeper payload inspection
+- Exporting logs somewhere a SIEM could ingest them
+- Enforcement on platforms other than Windows
+- Pulling in an actual threat intelligence feed rather than relying only on local behavior
 
-- Ignore local machine outbound browsing traffic
-- Ignore safe response ports:
-  - 53 (DNS)
-  - 80 (HTTP)
-  - 443 (HTTPS)
-- Improved inbound scan validation
+## What I took away from this
 
-Result:
-FirewallX became adaptive IPS.
+Detection without tuning just creates false positives — real traffic is noisy, and static rules alone aren't enough to tell normal behavior from an attack. Looking at behavior over a time window helped a lot more than looking at raw totals. And prevention needs its own safeguards; automatically blocking things is powerful enough that it's worth being careful about how and when it fires. An adaptive response — one that gets stricter the more times it sees the same offender — ended up working a lot better than a single fixed rule ever could.
 
----
-
-# 📌 Current Status
-
-```text
-✔ Firewall
-✔ IDS
-✔ IPS
-✔ Threat Scoring
-✔ Threat Decay
-✔ Whitelist
-✔ CIDR Trust
-✔ Automated Quarantine
-✔ Adaptive Escalation
-✔ Permanent Blocking
-✔ False Positive Tuning
-✔ Stable
-```
-
----
-
-# 🔄 Future Roadmap
-
-Planned enhancements:
-
-- Persistent attacker reputation storage
-- Config-driven detection thresholds
-- Dashboard / UI monitoring
-- Packet payload inspection
-- SIEM / log export integration
-- Cross-platform firewall enforcement
-- Threat intelligence feed integration
-
----
-
-# 🧠 Key Learnings
-
-Lessons from building FirewallX:
-
-- Detection without tuning creates false positives
-- Real-world traffic is noisy
-- Static rules alone are insufficient
-- Time-based behavior analysis improves accuracy
-- Prevention requires safeguards
-- Adaptive response is stronger than fixed response
-
----
-
-# 🚀 Long-Term Goal
-
-Evolve FirewallX into:
-
-- Production-grade lightweight endpoint firewall
-- Real-time monitoring platform
-- Intelligent adaptive IPS security agent
+The longer-term idea is to keep pushing this toward something closer to a real lightweight endpoint firewall — a genuinely adaptive IPS agent rather than a learning project, with real-time monitoring instead of a log file you have to go read.

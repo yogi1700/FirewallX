@@ -1,7 +1,7 @@
 from scapy.all import sniff, IP
 
 # Change this IP based on your observed traffic
-BLOCK_IP = "10.232.93.238"
+BLOCK_IP = "192.168.1.100"
 
 def process_packet(packet):
     if packet.haslayer(IP):
