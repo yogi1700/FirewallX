@@ -221,6 +221,8 @@ detect, block, verify, recover:
 | 1 | Port scan detected | `nmap -Pn -p 1-1000 <target>` | `[RATE ALERT] Diverse high traffic from <attacker>` in the log | `detection.rate_threshold = 10` | ✅ Pass — see below |
 | 2 | Auto-block + quarantine | re-run the scan until the threat score crosses 15 | `[WARNING]` → `[CRITICAL]` → `[QUARANTINE]`; a `FirewallX_<attacker-ip>` rule appears in `netsh advfirewall firewall show rule name=all` | `threat_thresholds.critical = 15`, `quarantine.first_offense = 300` | ✅ Pass — see below |
 | 3 | Block verified + auto-release | from Kali, confirm traffic now fails (`curl`/ping timing out); wait for quarantine to expire; confirm it succeeds again | Attacker traffic dropped during quarantine; `[RELEASE]` logged and traffic resumes | `quarantine.first_offense = 300` | ✅ Pass — see below |
+| 4 | Permanent block (repeat offender) | trigger CRITICAL a 3rd time from the same attacker IP | `[PERMANENT BLOCK]`; the `netsh` rule stays forever (no `[RELEASE]`) | `permanent_block_after = 3` | ✅ Pass — see below |
+| 5 | Whitelist bypass | whitelist the attacker IP in `rules.json`, restart, re-scan | `[WHITELIST] Trusted IP skipped: <attacker>`; zero alerts regardless of scan intensity | `whitelist_ips` | ✅ Pass — see below |
 
 ## Test 1 — Port scan detected
 
@@ -291,6 +293,48 @@ unblock:
 `netsh` confirms the rule was actually removed at that point, not just
 logged as removed.
 
+## Test 4 — Permanent block (repeat offender)
+
+After the offense #2 quarantine expired, a 3rd CRITICAL from the same IP
+triggered the permanent-blacklist path instead of another timed quarantine:
+
+```text
+2026-07-20 20:40:53 | [RELEASE] Unblocked 192.168.56.101 after quarantine expiry
+2026-07-20 20:46:15 | [PERMANENT BLOCK] 192.168.56.101 after 3 offenses
+```
+
+Unlike offenses #1 and #2, this rule has no timer — `netsh` still shows it
+active with no expiry logic attached, and it stays blocked until manually
+removed:
+
+```
+$ netsh advfirewall firewall show rule name="FirewallX_192.168.56.101"
+Rule Name:    FirewallX_192.168.56.101
+Direction:    Out
+RemoteIP:     192.168.56.101/32
+Action:       Block
+```
+
+## Test 5 — Whitelist bypass
+
+Added the attacker IP to `whitelist_ips` in `rules.json`, restarted the
+engine, and re-ran the same continuous scan used above. Every single packet
+was skipped before it ever reached detection:
+
+```text
+[WHITELIST] Trusted IP skipped: 192.168.56.101
+[WHITELIST] Trusted IP skipped: 192.168.56.101
+[WHITELIST] Trusted IP skipped: 192.168.56.101
+... (539,239 times over the test run, zero alerts, zero score increase)
+```
+
+**Real gotcha found while checking this:** that message only goes to
+`print()`, not `write_log()` — so whitelisted traffic never shows up in
+`logs/firewall.log`, only on the live console. Not a bug (whitelisting
+itself works exactly as intended), but worth knowing if you're relying on
+the log file rather than the console for an audit trail — it's a minor gap
+worth closing in a future pass.
+
 ## Lab setup notes (for anyone reproducing this)
 
 Getting the VM traffic visible to the capture took a few real fixes, worth
@@ -319,10 +363,16 @@ recording in case you hit the same things:
 5. Threat scores/offender counts live only in memory — restarting the
    engine resets them, so a fresh terminal means re-running the scan to
    build the score back up.
+6. When verifying the whitelist test, checking only `logs/firewall.log`
+   looked like total silence (no Kali traffic at all) and cost a long
+   detour re-checking VM networking that was already fine — the real
+   traffic was there the whole time, just on the console instead of the
+   log file (see Test 5). Worth checking both when debugging "nothing's
+   happening."
 
-(Other detectors — host sweep, payload matching, permanent-block escalation —
-use the same mechanism under the hood; these 3 steps are enough to prove the
-pipeline end-to-end without repeating the same demo six times.)
+(Host sweep and payload-pattern matching weren't separately exercised here —
+they share the same scoring/enforcement mechanism already proven by Tests
+1-4 above, just with a different trigger condition.)
 
 ---
 
