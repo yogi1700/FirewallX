@@ -27,6 +27,32 @@ Traffic comes in through Scapy, gets checked against the whitelist, and if it's 
 
 As a loop, it's roughly: **capture → detect → score → decide → act → recover → log.**
 
+```mermaid
+flowchart TD
+    A[Packet captured] --> B{Whitelisted IP?}
+    B -- yes --> Z[Allow, skip detection]
+    B -- no --> C[Detection engine]
+
+    C --> C1[Rate / diversity check]
+    C --> C2[Port scan check]
+    C --> C3[Host sweep check]
+    C --> C4[Payload pattern check]
+
+    C1 --> D[Update threat score]
+    C2 --> D
+    C3 --> D
+    C4 --> D
+
+    D --> E{Threat level?}
+    E -- LOW / MEDIUM --> Z
+    E -- HIGH --> F[Warning logged]
+    E -- CRITICAL --> G{How many offenses?}
+
+    G -- 1st or 2nd --> H["Block + quarantine (300s, then 900s)"]
+    G -- 3rd --> I[Permanent block]
+    H --> J[Auto-release when timer expires]
+```
+
 ## Project layout
 
 ```
