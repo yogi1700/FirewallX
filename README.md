@@ -114,6 +114,12 @@ py list_interfaces.py
 py firewall_engine.py
 ```
 
+```bash
+# run the test suite (no Windows/Npcap needed - these test the logic directly)
+pip install -r requirements-dev.txt
+pytest tests/
+```
+
 ## Reading the output
 
 Every packet that gets processed prints a line like:
@@ -146,7 +152,7 @@ Reading the code convinced me the logic was sound, but I wanted to actually see 
 
 **A third offense triggered a permanent block** instead of another timed quarantine, exactly as the escalation policy describes — and unlike the first two, that rule has no expiry and stays until it's removed by hand.
 
-**Whitelisting worked cleanly.** I added the attacker's IP to the whitelist, restarted the engine, and re-ran the scan — every single packet was skipped before it ever reached detection, with zero false alerts across the whole run. While checking this one I found a real (small) gap: the whitelist-skip message only goes to the console via `print()`, it never gets written to `logs/firewall.log`. Not a bug — whitelisting itself works exactly as intended — but if you're relying on the log file rather than watching the console live, you'd never see evidence that it happened. Worth fixing at some point.
+**Whitelisting worked cleanly.** I added the attacker's IP to the whitelist, restarted the engine, and re-ran the scan — every single packet was skipped before it ever reached detection, with zero false alerts across the whole run. While checking this one I found a real (small) gap: the whitelist-skip message only went to the console via `print()`, never to `logs/firewall.log`. Not a detection bug — whitelisting itself worked exactly as intended — but relying on the log file alone would show zero evidence it ever happened. Fixed since: the whitelist-skip branch now writes to the log too, covered by a unit test that mocks `write_log` and asserts it's called with the right message.
 
 A couple of practical things I ran into while setting this up, in case anyone else hits the same:
 

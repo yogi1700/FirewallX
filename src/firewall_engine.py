@@ -396,7 +396,9 @@ def process_packet(packet):
 
     if src_white or dst_white:
         trusted_ip = src_ip if src_white else dst_ip
-        print(f"[WHITELIST] Trusted IP skipped: {trusted_ip}")
+        msg = f"[WHITELIST] Trusted IP skipped: {trusted_ip}"
+        print(msg)
+        write_log(msg)
         return
 
     protocol = "OTHER"
