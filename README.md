@@ -2,7 +2,7 @@
 
 FirewallX is a firewall and intrusion detection/prevention system I built for Windows in Python. I started it as a way to actually understand how firewalls, IDS, and IPS tools work under the hood, instead of just reading about them — so it watches live network traffic, scores behavior that looks suspicious, and automatically blocks and quarantines IPs that cross a threshold, using Windows' own firewall to enforce the block.
 
-It went through a lot of iteration. It started as a plain packet sniffer, then grew into rule-based filtering, then behavior-based detection, and eventually an adaptive system that escalates its response the more times the same attacker shows up. The devlog further down walks through that progression.
+It went through a lot of iteration. It started as a plain packet sniffer, then grew into rule-based filtering, then behavior-based detection, and eventually an adaptive system that escalates its response the more times the same attacker shows up. "How this got built" further down walks through that progression.
 
 ## What it does
 
@@ -56,7 +56,7 @@ flowchart TD
 ## Project layout
 
 ```
-FirewallX-Core/
+FirewallX/
 │
 ├── src/
 │   ├── firewall_engine.py    capture, detection, threat scoring, entry point
@@ -69,9 +69,11 @@ FirewallX-Core/
 │   ├── settings.json         your local config (gitignored, not committed)
 │   └── rules.json            static block/whitelist rules
 │
-├── archive/                  early prototype scripts from the first few days, kept for history
-├── logs/                     runtime log output (gitignored)
+├── tests/                     unit tests (pytest) - exercise logic directly, no live capture needed
+├── archive/                   early prototype scripts from the first few days, kept for history
+├── logs/                      runtime log output (gitignored)
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
